@@ -1,0 +1,31 @@
+# Finds the planted ceiling: throughput stops at ~200 req/s with low CPU,
+# and redline names a concurrency cap of ~4 (4 workers × 20 ms).
+#   go-dyno redline -c examples/demo/redline.yaml && go-dyno report examples/demo/results
+name: demo
+scenario: work
+cpus: 2
+
+processes:
+  - name: api
+    debug: localhost:6060
+    ready: http://localhost:8080/healthz
+    docker:
+      build: ../..
+      dockerfile: Dockerfile
+      image: go-dyno-demo:dev
+      ports: ["8080:8080", "6060:6060"]
+
+load:
+  base_url: http://localhost:8080
+  rate: 50                 # unused by redline; required by the schema
+  timeout: 3s
+  routes:
+    - {name: work, path: /work}
+
+redline:
+  start: 50
+  factor: 2
+  step: 15s
+  warmup: 5s
+  p99: 200ms
+  refine: 2

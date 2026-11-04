@@ -1,0 +1,31 @@
+# Finds the planted leak: goroutines and heap grow linearly under constant load,
+# and heap growth points at main.leak.
+#   go-dyno run -c examples/demo/leak.yaml && go-dyno report examples/demo/results
+name: demo
+scenario: leak
+reps: 1
+cpus: 2
+
+processes:
+  - name: api
+    debug: localhost:6060
+    ready: http://localhost:8080/healthz
+    docker:
+      build: ../..
+      dockerfile: Dockerfile
+      image: go-dyno-demo:dev
+      ports: ["8080:8080", "6060:6060"]
+
+load:
+  base_url: http://localhost:8080
+  rate: 100
+  warmup: 15s
+  duration: 2m
+  routes:
+    - {name: leak, path: /leak}
+
+capture:
+  cpu: 20s
+  trace: 3s
+  sample_interval: 2s
+  snapshot_interval: 20s

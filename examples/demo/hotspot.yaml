@@ -1,0 +1,30 @@
+# Finds the planted hotspot: regexp compilation dominates the CPU profile.
+#   go-dyno run -c examples/demo/hotspot.yaml && go-dyno report examples/demo/results
+name: demo
+scenario: hotspot
+reps: 3
+cpus: 2
+
+processes:
+  - name: api
+    debug: localhost:6060
+    ready: http://localhost:8080/healthz
+    docker:
+      build: ../..
+      dockerfile: Dockerfile
+      image: go-dyno-demo:dev
+      ports: ["8080:8080", "6060:6060"]
+
+load:
+  base_url: http://localhost:8080
+  rate: 300
+  warmup: 15s
+  routes:
+    - {name: hot, path: /hot}
+
+capture:
+  cpu: 20s
+  trace: 3s
+
+focus:
+  - {process: api, label: regexp compile, regex: "regexp\\.compile|regexp/syntax"}
