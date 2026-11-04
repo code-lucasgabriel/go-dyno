@@ -1,3 +1,4 @@
 results/
+!internal/results/
 /go-dyno
 *.test
