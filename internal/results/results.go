@@ -196,7 +196,7 @@ func LoadAll(root string) ([]*Run, error) {
 	var runs []*Run
 	for _, e := range ents {
 		d := filepath.Join(root, e.Name())
-		if !e.IsDir() {
+		if st, err := os.Stat(d); err != nil || !st.IsDir() { // follows symlinked run folders
 			continue
 		}
 		if _, err := os.Stat(filepath.Join(d, "meta.json")); err != nil {
