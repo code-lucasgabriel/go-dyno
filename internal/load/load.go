@@ -216,13 +216,17 @@ func RunK6(ctx context.Context, cfg *config.Config, rate float64, dur time.Durat
 	args := append([]string{"run", "--quiet", "--out", "csv=" + raw}, k.Args...)
 	args = append(args, cfg.Path(k.Script))
 	c := exec.CommandContext(ctx, "k6", args...)
-	c.Env = append(os.Environ(), "BASE_URL="+cfg.Load.BaseURL, fmt.Sprintf("RATE=%g", rate), fmt.Sprintf("DURATION=%ds", int(dur.Seconds())))
+	// unix_micro: the default CSV timestamp has whole-second resolution.
+	c.Env = append(os.Environ(), "BASE_URL="+cfg.Load.BaseURL, fmt.Sprintf("RATE=%g", rate), fmt.Sprintf("DURATION=%ds", int(dur.Seconds())), "K6_CSV_TIME_FORMAT=unix_micro")
 	lf, _ := os.Create(dir + "/k6.log")
 	c.Stdout, c.Stderr = lf, lf
 	sum := Summary{Tool: "k6", Rate: rate, Cores: runtime.NumCPU(), Start: unix(time.Now())}
 	err := c.Run()
 	lf.Close()
 	sum.End = unix(time.Now())
+	if c.ProcessState != nil {
+		sum.CPUSeconds = (c.ProcessState.UserTime() + c.ProcessState.SystemTime()).Seconds()
+	}
 	if err != nil {
 		return sum, fmt.Errorf("k6: %w (see k6.log)", err)
 	}
@@ -270,12 +274,16 @@ func RunK6(ctx context.Context, cfg *config.Config, rate float64, dur time.Durat
 		}
 		name := get("metric_name")
 		ts, _ := strconv.ParseFloat(get("timestamp"), 64)
+		if ts > 1e14 { // unix_micro; older k6 ignores the format and writes seconds
+			ts /= 1e6
+		}
 		v, _ := strconv.ParseFloat(get("metric_value"), 64)
 		switch {
 		case name == k.LatencyMetric:
 			sum.Sent++
 			st, _ := strconv.Atoi(tags["status"])
-			sink(Sample{T: ts, Route: tags[k.RouteTag], LatencyMs: v, OK: tags[k.OKTag] == "true", Status: st})
+			// k6 stamps a request when it completes; Sample.T is when it was sent.
+			sink(Sample{T: ts - v/1000, Route: tags[k.RouteTag], LatencyMs: v, OK: tags[k.OKTag] == "true", Status: st})
 		case name == "dropped_iterations":
 			sum.Dropped += int64(v)
 		case k.CounterPrefix != "" && strings.HasPrefix(name, k.CounterPrefix):
