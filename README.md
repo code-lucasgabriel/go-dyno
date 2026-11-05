@@ -160,11 +160,20 @@ A change counts only if it exceeds both its threshold (5% for CPU and allocation
 
 ## Agents
 
-go-dyno is built to be driven by an agent. Install the Claude Code plugin:
+go-dyno is built to be driven by an agent. This repo is its own Claude Code plugin marketplace: Claude Code installs the plugin straight from GitHub, with no catalog in between. Inside Claude Code, run this on its own line:
 
 ```
 /plugin install go-dyno --marketplace code-lucasgabriel/go-dyno
 ```
+
+On older Claude Code versions, use the two-step form instead:
+
+```
+/plugin marketplace add code-lucasgabriel/go-dyno
+/plugin install go-dyno@go-dyno
+```
+
+To pick up a new release later, run `/plugin update go-dyno`.
 
 Then open Claude Code in any Go repo and run:
 
