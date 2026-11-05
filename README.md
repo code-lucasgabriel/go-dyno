@@ -1,15 +1,44 @@
-# go-dyno
+<p align="center">
+  <img src=".github/assets/go-dyno.jpg" alt="The Go gopher pressing a button wired to a pressure gauge whose needle drives a jagged latency trace" width="720">
+</p>
 
-Load-driven performance audits for Go services. go-dyno runs your service under controlled load, captures pprof profiles in a fixed window, and tells you whether the measurement can be trusted before you read a single number.
+<h1 align="center">go-dyno</h1>
 
-- **Measure:** CPU µs per request, bytes allocated per request, GC share, latency percentiles, top functions, flame graphs.
-- **Trust:** every run is graded A–F by validity checks (errors, request count on target, throttling, pprof vs OS CPU, Linux host, load generator health). Failed runs are kept but never averaged in.
-- **Redline:** ramps load to the throughput ceiling and names the limit: CPU-bound process, throttling, a single hot goroutine, the load generator, or a concurrency cap.
-- **Leaks:** goroutine and heap slopes under constant load, plus the allocation sites holding the growth.
-- **Compare:** base vs head with run-to-run noise as the floor. Exits 1 on regression, for CI.
-- **Report:** one self-contained HTML file. Also a JSON summary, tidy CSV tables, and an MCP server for agents.
+<p align="center">
+  <strong>Load-driven performance audits for Go services.</strong><br>
+  Put your service under controlled load, profile it with pprof, and find out whether the measurement can be trusted before you read a single number.
+</p>
 
-## Install
+<p align="center">
+  <a href="https://github.com/code-lucasgabriel/go-dyno/actions/workflows/ci.yml"><img src="https://github.com/code-lucasgabriel/go-dyno/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pkg.go.dev/github.com/code-lucasgabriel/go-dyno/dyno"><img src="https://pkg.go.dev/badge/github.com/code-lucasgabriel/go-dyno/dyno.svg" alt="Go Reference"></a>
+  <a href="https://goreportcard.com/report/github.com/code-lucasgabriel/go-dyno"><img src="https://goreportcard.com/badge/github.com/code-lucasgabriel/go-dyno" alt="Go Report Card"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#use-it-on-your-service">Your service</a> ·
+  <a href="#agents">Agents</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#trust-checks">Trust checks</a> ·
+  <a href="#regression-gate-in-ci">CI gate</a>
+</p>
+
+---
+
+A profile is only as good as the load and the environment it was taken under. go-dyno runs the service in fresh processes, drives it at a fixed rate, captures every profile inside the same window, and grades each run before any number reaches you.
+
+| | |
+|---|---|
+| **Measure** | CPU µs per request, bytes allocated per request, GC share, latency percentiles, top functions, flame graphs. |
+| **Trust** | Every run is graded A–F by validity checks: errors, request count on target, throttling, pprof vs OS CPU, Linux host, load generator health. Failed runs are kept but never averaged in. |
+| **Redline** | Ramps load to the throughput ceiling and names the limit: a CPU-bound process, throttling, a single hot goroutine, the load generator, or a concurrency cap. |
+| **Leaks** | Goroutine and heap slopes under constant load, plus the allocation sites holding the growth. |
+| **Compare** | Base vs head with run-to-run noise as the floor. Exits 1 on regression, for CI. |
+| **Report** | One self-contained HTML file. Also a JSON summary, tidy CSV tables, and an MCP server for agents. |
+
+## Quick start
 
 ```sh
 go install github.com/code-lucasgabriel/go-dyno/cmd/go-dyno@latest
@@ -17,7 +46,7 @@ go install github.com/code-lucasgabriel/go-dyno/cmd/go-dyno@latest
 
 Requires Go 1.26+. Docker is recommended: profiles taken on a macOS host are dominated by the kernel.
 
-## Try it on the demo (5 minutes)
+### Try it on the demo (5 minutes)
 
 The demo service has three planted problems: a hotspot, a leak, and a concurrency ceiling.
 
@@ -41,7 +70,9 @@ What go-dyno finds (Linux container, 2 CPUs):
 
 ## Use it on your service
 
-**1. Instrument** (optional, recommended). One call, no-op unless `DYNO_ADDR` is set:
+### 1. Instrument (optional, recommended)
+
+One call, a no-op unless `DYNO_ADDR` is set, so it is safe to merge:
 
 ```go
 import "github.com/code-lucasgabriel/go-dyno/dyno"
@@ -56,9 +87,11 @@ func main() {
 }
 ```
 
-It serves the standard pprof endpoints and `/debug/dyno/stats`: process and cgroup CPU, throttling, request count, goroutines, heap and GC CPU. For non-HTTP servers call `dyno.CountRequest()`. Without the package, set `metrics: prometheus` and point go-dyno at your request counter.
+It serves the standard pprof endpoints and `/debug/dyno/stats`: process and cgroup CPU, throttling, request count, goroutines, heap and GC CPU. The middleware keeps `http.Flusher` and `http.Hijacker` working for the handlers behind it. For non-HTTP servers call `dyno.CountRequest()`. Without the package, set `metrics: prometheus` and point go-dyno at your request counter.
 
-**2. Configure.** `go-dyno init > dyno.yaml` prints a commented starter. The essentials:
+### 2. Configure
+
+`go-dyno init > dyno.yaml` prints a commented starter. The essentials:
 
 ```yaml
 name: my-service
@@ -91,14 +124,41 @@ load:
   rate_source: {kind: redline, redline: results/redline-baseline, fraction: 0.5}   # sets rate
 ```
 
-Processes run in Docker (`docker:`) or as local commands (`command:`). Load comes from the built-in open-loop HTTP generator or from a k6 script (`load.k6.script`), which receives `BASE_URL`, `RATE` and `DURATION`.
+Processes run in Docker (`docker:`) or as local commands (`command:`). Load comes from the built-in open-loop HTTP generator or from a k6 script (`load.k6.script`), which receives `BASE_URL`, `RATE` and `DURATION`. `run` and `redline` both use k6 when it is configured.
 
-**3. Run and read.**
+### 3. Run and read
 
 ```sh
 go-dyno run -c dyno.yaml
 go-dyno report results
 ```
+
+## Agents
+
+go-dyno is built to be driven by an agent. This repo is its own Claude Code plugin marketplace: Claude Code installs the plugin straight from GitHub, with no catalog in between. Inside Claude Code, run this on its own line:
+
+```
+/plugin install go-dyno --marketplace code-lucasgabriel/go-dyno
+```
+
+On older Claude Code versions, use the two-step form instead:
+
+```
+/plugin marketplace add code-lucasgabriel/go-dyno
+/plugin install go-dyno@go-dyno
+```
+
+To pick up a new release later, run `/plugin update go-dyno`. Then open Claude Code in any Go repo and run:
+
+```
+/go-dyno:audit why is checkout slow
+```
+
+The agent works in a separate git worktree. It finds the service, its routes and dependencies, adds the `dyno` package, writes `dyno.yaml`, smoke-tests until requests succeed, finds a rate (redline if there is no production number), measures, and hands back the report with graded findings. It asks only for what the repo can't tell it, such as credentials, and removes the containers, networks and images it created when it is done. Without arguments it runs a baseline audit.
+
+The plugin also registers the MCP server, built from the plugin's own source on first use (needs Go 1.26+). Tools: `dyno_run`, `dyno_redline`, `dyno_compare`, `dyno_report`, `dyno_summary`, `dyno_top`.
+
+**Other agents:** the skill is plain Markdown in [`skills/audit/`](skills/audit/SKILL.md); copy it into the agent's skills folder. Any MCP client can run `go-dyno mcp` over stdio, for example `claude mcp add go-dyno -- go-dyno mcp`.
 
 ## Commands
 
@@ -113,11 +173,13 @@ go-dyno report results
 | `go-dyno extract RUN_DIR...` | Rebuild tidy tables and checks for run folders. |
 | `go-dyno mcp` | Serve the tools over MCP (stdio). |
 
+Containers that go-dyno starts are labelled with the go-dyno process that owns them. If a run crashes or is killed, the next `run` or `redline` on the same host removes its leftover containers before starting.
+
 ## How the numbers are made
 
 - **CPU per request** = OS CPU in the capture window (cgroup if available, else rusage) ÷ requests the entry process served in the same window. Every process is divided by the same count, so a backend's figure is CPU per user request.
 - **Shares** are computed against the profile's full total, with no hidden nodes.
-- **Latency** comes from the load generator: successful requests after warm-up, per route and overall.
+- **Latency** comes from the load generator: successful requests after warm-up, per route and overall. Each request is timed from when it was sent, for the built-in generator and k6 alike.
 - **GC share** = GC CPU (assist, background and pauses, idle mark excluded) ÷ process CPU.
 - **Aggregates** are the median and min–max over passing repetitions.
 
@@ -158,38 +220,9 @@ At the first failing rate, go-dyno checks, in order:
 
 A change counts only if it exceeds both its threshold (5% for CPU and allocations, 10% for latency by default) and half the run-to-run spread. Run base and head on the same machine.
 
-## Agents
-
-go-dyno is built to be driven by an agent. This repo is its own Claude Code plugin marketplace: Claude Code installs the plugin straight from GitHub, with no catalog in between. Inside Claude Code, run this on its own line:
-
-```
-/plugin install go-dyno --marketplace code-lucasgabriel/go-dyno
-```
-
-On older Claude Code versions, use the two-step form instead:
-
-```
-/plugin marketplace add code-lucasgabriel/go-dyno
-/plugin install go-dyno@go-dyno
-```
-
-To pick up a new release later, run `/plugin update go-dyno`.
-
-Then open Claude Code in any Go repo and run:
-
-```
-/go-dyno:audit why is checkout slow
-```
-
-The agent works in a separate git worktree. It finds the service, its routes and dependencies, adds the `dyno` package, writes `dyno.yaml`, smoke-tests until requests succeed, finds a rate (redline if there is no production number), measures, and hands back the report with graded findings. It asks only for what the repo can't tell it, such as credentials. Without arguments it runs a baseline audit.
-
-The plugin also registers the MCP server, built from the plugin's own source on first use (needs Go 1.26+). Tools: `dyno_run`, `dyno_redline`, `dyno_compare`, `dyno_report`, `dyno_summary`, `dyno_top`.
-
-**Other agents:** the skill is plain Markdown in [`skills/audit/`](skills/audit/SKILL.md); copy it into the agent's skills folder. Any MCP client can run `go-dyno mcp` over stdio, for example `claude mcp add go-dyno -- go-dyno mcp`.
-
 ## Output
 
-Each run folder holds the raw profiles (open with `go tool pprof -http=: <file>`), `meta.json`, `checks.json`, `meta.md`, and `tidy/` CSV tables for notebooks or scripts. The layout and columns are in [`skills/audit/references/notebook-report.md`](skills/audit/references/notebook-report.md).
+Each run folder holds the raw profiles (open with `go tool pprof -http=: <file>`), `meta.json`, `checks.json`, `meta.md`, and `tidy/` CSV tables for notebooks or scripts. The layout and columns are in [`skills/audit/references/notebook-report.md`](skills/audit/references/notebook-report.md). `report` and `summary` also read run folders that are symlinks, so a results folder can be assembled from links.
 
 ## Limitations
 
@@ -199,4 +232,4 @@ Each run folder holds the raw profiles (open with `go tool pprof -http=: <file>`
 
 ## License
 
-MIT
+[MIT](LICENSE)
