@@ -19,6 +19,7 @@ Deliverable: the HTML report (`go-dyno report`) plus a short written summary. Ev
 ## Hard rules
 
 - Work in a separate git worktree; never touch the user's checkout. Don't commit or push unless asked.
+- Tear down everything you create. Keep a list as you go: containers, compose stacks, Docker networks and volumes, images you built, background scripts and probes, temporary files outside the results folder. go-dyno removes the containers of the processes under test; the rest is yours. Put the teardown in `hooks.after_all` where it fits, but it runs only when every repetition succeeds, so check again at the end and after any crash or abort. Keep the worktree and the results folder: they hold the report.
 - Only add instrumentation, test handlers, load scripts and go-dyno configs. Don't fix the code under test during the audit; record findings.
 - Report every failed check or suspicious number as it happens. Never smooth a bad run into the averages; go-dyno already excludes runs with failing checks, so say how many were excluded and why.
 - Only draw conclusions from runs graded A or B. Quote the grade next to the number.
@@ -110,6 +111,7 @@ Then it runs the per-run checks: captures complete, error rate, requests in the 
 - `go-dyno summary results` (or `dyno_summary`) gives the same numbers as JSON for the written summary. Each conclusion cites its number, its run grade and its label.
 - For a CI gate: `go-dyno compare results/base results/head --markdown comment.md` exits 1 on regression.
 - Notebook only on request: follow `references/notebook-report.md`.
+- Before handing over, remove what you created (see Hard rules), confirm nothing is left running, and say in the summary what you removed and what you kept (worktree, results, branch).
 
 ## Pitfalls seen in real audits
 
