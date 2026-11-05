@@ -146,6 +146,14 @@ type recorder struct {
 func (r *recorder) WriteHeader(code int)        { r.status = code; r.ResponseWriter.WriteHeader(code) }
 func (r *recorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
+// Flush and Hijack keep handlers that type-assert http.Flusher or
+// http.Hijacker on the writer working behind the middleware.
+func (r *recorder) Flush() { http.NewResponseController(r.ResponseWriter).Flush() }
+
+func (r *recorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(r.ResponseWriter).Hijack()
+}
+
 var gcMetrics = []metrics.Sample{
 	{Name: "/cpu/classes/gc/total:cpu-seconds"},
 	{Name: "/cpu/classes/gc/mark/idle:cpu-seconds"},
