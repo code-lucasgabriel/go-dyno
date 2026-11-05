@@ -1,0 +1,12 @@
+{
+  "name": "go-dyno",
+  "description": "Load-driven performance audits for Go services. Point it at any Go repo: the agent instruments the service, writes the config, runs it under load in Linux containers, and hands back a graded HTML report with hotspots, leaks, throughput ceiling and regressions.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Lucas Monteiro"
+  },
+  "homepage": "https://github.com/code-lucasgabriel/go-dyno",
+  "repository": "https://github.com/code-lucasgabriel/go-dyno",
+  "license": "MIT",
+  "keywords": ["go", "golang", "pprof", "performance", "profiling", "load-testing", "flamegraph", "memory-leak"]
+}

@@ -1,4 +1,4 @@
-// Package extract turns a run folder into tidy CSV tables (see skill/references/notebook-report.md).
+// Package extract turns a run folder into tidy CSV tables (see skills/audit/references/notebook-report.md).
 package extract
 
 import (

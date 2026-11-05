@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "go-dyno": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/go-dyno",
+      "args": ["mcp"]
+    }
+  }
+}

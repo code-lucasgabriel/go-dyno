@@ -160,19 +160,27 @@ A change counts only if it exceeds both its threshold (5% for CPU and allocation
 
 ## Agents
 
-**MCP:** add go-dyno to any MCP client, for example in Claude Code:
+go-dyno is built to be driven by an agent. Install the Claude Code plugin:
 
-```sh
-claude mcp add go-dyno -- go-dyno mcp
+```
+/plugin install go-dyno --marketplace code-lucasgabriel/go-dyno
 ```
 
-Tools: `dyno_run`, `dyno_redline`, `dyno_compare`, `dyno_report`, `dyno_summary`, `dyno_top`.
+Then open Claude Code in any Go repo and run:
 
-**Skill:** `skill/` is an agent skill with the audit method: environment, load calibration, how to read profiles, pitfalls. Copy it into your agent's skills folder, for example `~/.claude/skills/go-dyno`.
+```
+/go-dyno:audit why is checkout slow
+```
+
+The agent works in a separate git worktree. It finds the service, its routes and dependencies, adds the `dyno` package, writes `dyno.yaml`, smoke-tests until requests succeed, finds a rate (redline if there is no production number), measures, and hands back the report with graded findings. It asks only for what the repo can't tell it, such as credentials. Without arguments it runs a baseline audit.
+
+The plugin also registers the MCP server, built from the plugin's own source on first use (needs Go 1.26+). Tools: `dyno_run`, `dyno_redline`, `dyno_compare`, `dyno_report`, `dyno_summary`, `dyno_top`.
+
+**Other agents:** the skill is plain Markdown in [`skills/audit/`](skills/audit/SKILL.md); copy it into the agent's skills folder. Any MCP client can run `go-dyno mcp` over stdio, for example `claude mcp add go-dyno -- go-dyno mcp`.
 
 ## Output
 
-Each run folder holds the raw profiles (open with `go tool pprof -http=: <file>`), `meta.json`, `checks.json`, `meta.md`, and `tidy/` CSV tables for notebooks or scripts. The layout and columns are in [`skill/references/notebook-report.md`](skill/references/notebook-report.md).
+Each run folder holds the raw profiles (open with `go tool pprof -http=: <file>`), `meta.json`, `checks.json`, `meta.md`, and `tidy/` CSV tables for notebooks or scripts. The layout and columns are in [`skills/audit/references/notebook-report.md`](skills/audit/references/notebook-report.md).
 
 ## Limitations
 

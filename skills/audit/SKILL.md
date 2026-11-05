@@ -1,13 +1,18 @@
 ---
-name: go-dyno
-description: 'Run a load-driven CPU, memory and latency audit of a Go service with pprof using the go-dyno tool, and deliver a self-contained HTML report (optionally a notebook) whose numbers come from tidy data. Use when asked to profile, find hotspots, measure CPU per request, check a performance fix end to end, reproduce a stall/freeze/leak under load, find a throughput ceiling, or compare builds (A/B, version vs version). Triggers: pprof, flamegraph, CPU per request, allocation rate, GC share, goroutine dump, execution trace, mutex/block profile, saturation sweep, redline, load test with k6. NOT for distributed tracing, production telemetry pipelines, or non-Go services.'
+name: audit
+description: 'Run a load-driven CPU, memory and latency audit of a Go service end to end with the go-dyno tool: bootstrap an unfamiliar repo (instrument, config, dependencies, smoke test), measure under load in Linux containers, and deliver a graded HTML report. Use when asked to profile, find hotspots, measure CPU per request, check a performance fix end to end, reproduce a stall/freeze/leak under load, find a throughput ceiling, or compare builds (A/B, version vs version). Triggers: pprof, flamegraph, CPU per request, allocation rate, GC share, goroutine dump, execution trace, mutex/block profile, saturation sweep, redline, load test with k6, "why is this service slow". NOT for distributed tracing, production telemetry pipelines, or non-Go services.'
+argument-hint: '[what to investigate, e.g. "why is checkout slow" or "compare main vs this branch"]'
 ---
 
 # go-dyno: Go pprof audit
 
 A profile is only as good as the load and the environment it was taken under. Most of the effort in an audit goes into making the measurement trustworthy; reading the profile is the easy part. The `go-dyno` binary does the mechanics (processes, load, capture window, tidy tables, validity checks, report). This skill is the judgment around it: what to set up, what to distrust, how to read the result.
 
-Install: `go install github.com/code-lucasgabriel/go-dyno/cmd/go-dyno@latest`. If an MCP client has `go-dyno mcp` configured, the same commands are available as `dyno_*` tools.
+**The user's request:** $ARGUMENTS. If it is empty, run a baseline audit of the service in the current repo: hotspots, allocation, leaks and the throughput ceiling.
+
+**Drive the whole audit yourself.** Decide everything the repo can answer (entry point, routes, dependencies, settings, config). Ask the user only for what it cannot: credentials, a production rate they know, which of several services to audit. Ask once, with your best guess, then continue.
+
+Tool: run `go-dyno version`. If it is missing, install it with `go install github.com/code-lucasgabriel/go-dyno/cmd/go-dyno@latest` (needs Go 1.26+). When this skill comes from the go-dyno plugin, the same commands are also available as `dyno_*` MCP tools; long runs started that way continue in the background.
 
 Deliverable: the HTML report (`go-dyno report`) plus a short written summary. Every number comes from the tidy tables; none is typed by hand. Add a notebook (`references/notebook-report.md`) only when the user wants to re-cut the data.
 
@@ -21,6 +26,21 @@ Deliverable: the HTML report (`go-dyno report`) plus a short written summary. Ev
 - Report relative numbers (percent of a process's CPU, µs per request, bytes per request) under a documented load. No money figures.
 
 ## Procedure
+
+### 0. Bootstrap an unfamiliar repo
+
+Do this before any measurement; it is most of the work on a repo you have not seen.
+
+1. **Worktree:** `git worktree add ../<repo>-dyno -b dyno-audit` and work there.
+2. **Find the service.** Look for `package main` under `cmd/` or the root, and for `http.ListenAndServe`, `http.Server`, `gin`, `echo`, `chi`, `fiber`, gRPC servers. If there are several binaries, pick the one the request is about; if unclear, ask with your best guess.
+3. **Find how it runs.** A `Dockerfile`, `docker-compose.yml`, `Makefile`, Helm chart or deployment manifest shows the start command, port, environment variables, CPU limit and dependencies. Production-like values come from the deployment manifest, not from local defaults.
+4. **Find the routes** from the router setup. Prefer the routes the request is about; otherwise the high-traffic read and write paths, weighted roughly as production traffic would be (ask if a production mix exists). Note which need auth, IDs that must exist, or request bodies.
+5. **Dependencies.** Start databases, caches and queues with the repo's compose file, or minimal containers on one Docker network (`docker.network` in the config). Load seed data or migrations if the routes need data; put the reset in `hooks.before_rep`.
+6. **Instrument** (step 1 below), then `go-dyno init > dyno.yaml` and fill it in. Set `load.rate_source` honestly (step 3).
+7. **Smoke test** before real runs: a copy of the config with `reps: 1`, `warmup: 5s`, `capture.cpu: 5s`, a low rate. Read the run's `checks.json` and `<proc>.log`. Fix startup failures (missing env, unreachable dependency, wrong port) and failing routes (401/404/400: add headers, real IDs, valid bodies) until the error rate is 0 and `requests_on_target` passes. Never start the real runs with errors in the smoke test.
+8. **Rate:** if production rate is unknown, run `go-dyno redline` now and set `rate_source: {kind: redline, redline: results/redline-<scenario>, fraction: 0.5}`.
+
+Common traps: the service reads config from a file or flag, not env; it needs an auth token generated by a script in the repo; a background worker is a second process (add it to `processes`); the Dockerfile builds for production with stripped symbols (profiles still work; do not change the build).
 
 ### 1. Instrument the service
 

@@ -1,0 +1,19 @@
+{
+  "name": "go-dyno",
+  "owner": {
+    "name": "Lucas Monteiro"
+  },
+  "metadata": {
+    "description": "go-dyno: load-driven performance audits for Go services"
+  },
+  "plugins": [
+    {
+      "name": "go-dyno",
+      "source": "./",
+      "description": "Load-driven performance audits for Go services, run end to end by the agent.",
+      "version": "0.1.0",
+      "category": "development",
+      "keywords": ["go", "pprof", "performance", "profiling"]
+    }
+  ]
+}

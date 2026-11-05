@@ -20,4 +20,4 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - run: go test -count=1 -timeout 10m ./internal/e2e/
+      - run: go test -count=1 -timeout 10m ./internal/e2e/ ./internal/plugintest/

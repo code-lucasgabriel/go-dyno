@@ -1,0 +1,23 @@
+#!/bin/sh
+# Runs go-dyno for the Claude Code plugin. The binary is built once from the
+# plugin's own source, so it always matches the skill. Build output goes to
+# stderr only: stdout belongs to the command (the MCP server speaks on it).
+set -e
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if [ -f "$root/go.mod" ] && command -v go >/dev/null 2>&1; then
+	cache="${XDG_CACHE_HOME:-$HOME/.cache}/go-dyno"
+	sum=$(cd "$root" && find cmd dyno internal go.mod go.sum -type f \( -name '*.go' -o -name '*.html' -o -name 'go.*' \) ! -name '*_test.go' | LC_ALL=C sort | xargs cat | cksum | cut -d' ' -f1)
+	bin="$cache/go-dyno-$sum"
+	if [ ! -x "$bin" ]; then
+		mkdir -p "$cache"
+		echo "go-dyno: building from $root (first run only)" >&2
+		(cd "$root" && go build -o "$bin.tmp.$$" ./cmd/go-dyno) 1>&2
+		mv "$bin.tmp.$$" "$bin"
+	fi
+	exec "$bin" "$@"
+fi
+if command -v go-dyno >/dev/null 2>&1; then
+	exec go-dyno "$@"
+fi
+echo "go-dyno: needs Go 1.26+ (https://go.dev/dl) or go-dyno on PATH" >&2
+exit 127
