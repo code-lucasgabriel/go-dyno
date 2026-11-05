@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,6 +80,52 @@ func Env(cfg *config.Config, p config.Process, inDocker bool) map[string]string 
 
 var unsafe = regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
 
+// ownerLabel marks every container go-dyno starts with "<host>:<pid>" of the
+// go-dyno process that started it.
+const ownerLabel = "go-dyno.owner"
+
+func owner() string {
+	h, _ := os.Hostname()
+	return fmt.Sprintf("%s:%d", h, os.Getpid())
+}
+
+// Reap removes containers started by a go-dyno process on this host that is no
+// longer running (it crashed or was killed before it could stop them), so
+// they don't hold ports or CPU in the next run. Containers of go-dyno
+// processes that are still running are left alone.
+func Reap(ctx context.Context, cfg *config.Config, logf func(string, ...any)) {
+	docker := false
+	for _, p := range cfg.Processes {
+		docker = docker || p.Docker != nil
+	}
+	if !docker {
+		return
+	}
+	out, err := exec.CommandContext(ctx, "docker", "ps", "-a", "--filter", "label="+ownerLabel,
+		"--format", `{{.Names}} {{.Label "`+ownerLabel+`"}}`).Output()
+	if err != nil {
+		return
+	}
+	host, _ := os.Hostname()
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		name, own, ok := strings.Cut(line, " ")
+		if !ok {
+			continue
+		}
+		i := strings.LastIndex(own, ":")
+		if i < 0 {
+			continue
+		}
+		pid, err := strconv.Atoi(own[i+1:])
+		if err != nil || own[:i] != host || alive(pid) {
+			continue
+		}
+		if exec.CommandContext(ctx, "docker", "rm", "-f", name).Run() == nil {
+			logf("removed container %s left by an earlier go-dyno (pid %d) that did not stop it", name, pid)
+		}
+	}
+}
+
 // Start launches p and waits until its debug endpoint (and Ready URL) answer.
 func Start(ctx context.Context, cfg *config.Config, p config.Process, runID, logPath string) (*Running, error) {
 	lf, err := os.Create(logPath)
@@ -90,7 +137,7 @@ func Start(ctx context.Context, cfg *config.Config, p config.Process, runID, log
 		r.Mode = "docker"
 		r.cname = unsafe.ReplaceAllString("dyno-"+runID+"-"+p.Name, "-")
 		exec.Command("docker", "rm", "-f", r.cname).Run()
-		args := []string{"run", "-d", "--name", r.cname}
+		args := []string{"run", "-d", "--name", r.cname, "--label", ownerLabel + "=" + owner()}
 		if p.CPUs > 0 {
 			args = append(args, "--cpus", fmt.Sprint(p.CPUs))
 		}

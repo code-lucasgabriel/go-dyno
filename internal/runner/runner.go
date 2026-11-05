@@ -52,6 +52,7 @@ func Run(ctx context.Context, cfg *config.Config, o Options) ([]Result, error) {
 	if o.Reps > 0 {
 		reps = o.Reps
 	}
+	proc.Reap(ctx, cfg, o.Log)
 	if err := proc.Shell(ctx, cfg.Dir, cfg.Hooks.BeforeAll); err != nil {
 		return nil, err
 	}

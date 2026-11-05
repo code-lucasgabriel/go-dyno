@@ -69,6 +69,7 @@ func Run(ctx context.Context, cfg *config.Config, out string, logf func(string, 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Result{}, err
 	}
+	proc.Reap(ctx, cfg, logf)
 	if err := proc.Shell(ctx, cfg.Dir, cfg.Hooks.BeforeAll); err != nil {
 		return Result{}, err
 	}

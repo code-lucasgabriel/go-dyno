@@ -13,3 +13,9 @@ func setGroup(c *exec.Cmd) { c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 func terminate(c *exec.Cmd) { syscall.Kill(-c.Process.Pid, syscall.SIGTERM) }
 func kill(c *exec.Cmd)      { syscall.Kill(-c.Process.Pid, syscall.SIGKILL) }
+
+// alive reports whether a process with this pid exists on this host.
+func alive(pid int) bool {
+	err := syscall.Kill(pid, 0)
+	return err == nil || err == syscall.EPERM
+}
