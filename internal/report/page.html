@@ -291,6 +291,7 @@ function renderScenario(name) {
   if (!sc) return;
   s.append(el("h2", { id: "t-scen" }, `Scenario ${sc.name}`));
   s.append(el("p", { class: "note" }, `${sc.passing} of ${sc.total} runs passed; warm-up of ${sc.warmup}s excluded.`));
+  if (sc.load) s.append(el("p", {}, (sc.load_source === "estimate" || !sc.load_source) ? el("span", { class: "status st-warn" }, el("i", {}, ST.warn), " ") : "", "Load: ", sc.load, "."));
   s.append(el("div", { class: "card" }, table(["check", "status", "detail"], sc.checks.map(c => [c.name, status(c.status), c.detail]))));
 
   s.append(el("h3", { id: "t-lat" }, "Latency (successful requests after warm-up, all passing runs)"));

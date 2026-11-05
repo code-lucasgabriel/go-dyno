@@ -19,6 +19,7 @@ processes:
 load:
   base_url: http://localhost:8080
   rate: 100
+  rate_source: {kind: estimate, note: "a fixed demo rate; leaks grow at any steady rate"}
   warmup: 15s
   duration: 2m
   routes:

@@ -2,7 +2,9 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -61,12 +63,41 @@ type Prometheus struct {
 type Load struct {
 	BaseURL     string        `yaml:"base_url"`
 	Rate        float64       `yaml:"rate"` // requests per second, open loop
+	RateSource  RateSource    `yaml:"rate_source"`
 	Duration    time.Duration `yaml:"duration"`
 	Warmup      time.Duration `yaml:"warmup"`
 	Timeout     time.Duration `yaml:"timeout"`
 	MaxInFlight int           `yaml:"max_in_flight"`
 	Routes      []Route       `yaml:"routes"`
 	K6          *K6           `yaml:"k6"`
+}
+
+// RateSource records where the load rate came from, so an estimate is never
+// read as production traffic.
+type RateSource struct {
+	Kind     string  `yaml:"kind" json:"kind"`                   // measured | estimate | redline; empty means not recorded
+	Note     string  `yaml:"note" json:"note,omitempty"`         // how it was obtained
+	Redline  string  `yaml:"redline" json:"redline,omitempty"`   // kind redline: a redline.json or its folder
+	Fraction float64 `yaml:"fraction" json:"fraction,omitempty"` // kind redline: rate = fraction × knee
+	Knee     float64 `yaml:"-" json:"knee,omitempty"`            // kind redline: the knee read from the file
+}
+
+// Describe is a one-line, human description of the rate and its source.
+func (s RateSource) Describe(rate float64) string {
+	r := fmt.Sprintf("%g req/s", rate)
+	note := ""
+	if s.Note != "" {
+		note = " (" + s.Note + ")"
+	}
+	switch s.Kind {
+	case "measured":
+		return r + ", measured from production" + note
+	case "estimate":
+		return r + ", an estimate" + note + "; treat absolute latency and headroom as indicative"
+	case "redline":
+		return fmt.Sprintf("%s, %g%% of the redline knee of %g req/s%s", r, s.Fraction*100, s.Knee, note)
+	}
+	return r + "; source not recorded (set load.rate_source)"
 }
 
 type Route struct {
@@ -143,11 +174,52 @@ func Read(path string) (*Config, error) {
 	}
 	abs, _ := filepath.Abs(path)
 	c.Dir = filepath.Dir(abs)
+	if err := c.resolveRate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	c.Defaults()
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	return &c, nil
+}
+
+// resolveRate sets the rate from a redline result when rate_source asks for it.
+func (c *Config) resolveRate() error {
+	s := &c.Load.RateSource
+	switch s.Kind {
+	case "", "measured", "estimate":
+		return nil
+	case "redline":
+	default:
+		return fmt.Errorf("load.rate_source.kind must be measured, estimate or redline")
+	}
+	if c.Load.Rate != 0 {
+		return fmt.Errorf("load.rate_source.kind redline sets the rate; remove load.rate")
+	}
+	if s.Fraction <= 0 || s.Fraction > 1 {
+		return fmt.Errorf("load.rate_source.fraction must be in (0, 1]")
+	}
+	f := c.Path(s.Redline)
+	if st, err := os.Stat(f); err == nil && st.IsDir() {
+		f = filepath.Join(f, "redline.json")
+	}
+	b, err := os.ReadFile(f)
+	if err != nil {
+		return fmt.Errorf("load.rate_source.redline: %w (run go-dyno redline first)", err)
+	}
+	var r struct {
+		Knee float64 `json:"knee"`
+	}
+	if err := json.Unmarshal(b, &r); err != nil {
+		return fmt.Errorf("%s: %w", f, err)
+	}
+	if r.Knee <= 0 {
+		return fmt.Errorf("%s: no passing redline step, so there is no knee to take a fraction of", f)
+	}
+	s.Knee = r.Knee
+	c.Load.Rate = math.Round(r.Knee * s.Fraction)
+	return nil
 }
 
 func (c *Config) Defaults() {
@@ -329,6 +401,12 @@ processes:
 load:
   base_url: http://localhost:8080
   rate: 200                        # requests per second, open loop
+  rate_source:                     # where the rate came from; shown on every report
+    kind: estimate                 # measured | estimate | redline
+    note: "peak req/s per instance from access logs"
+    # kind: redline                # take a fraction of a redline knee instead of rate:
+    # redline: results/redline-baseline
+    # fraction: 0.5
   warmup: 60s                      # excluded from every statistic
   # duration: 10m                  # longer runs for leak hunting; default is just enough
   routes:

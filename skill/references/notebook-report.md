@@ -28,7 +28,7 @@ results/redline-<scenario>/    redline.json, one step-<rate>/ folder per step
 
 | file | grain | columns |
 |---|---|---|
-| `run.csv` | one row per run × process | run_id, scenario, rep, label, sha, process, entry, cpus, rate, every param, window_s, requests_server, requests_loadgen, cpu_s_os, cpu_source (cgroup / rusage / prometheus), cpu_s_pprof, throttled_periods, alloc_bytes, gc_cycles, gc_cpu_s, warmup_s, load_s, goos, status |
+| `run.csv` | one row per run × process | run_id, scenario, rep, label, sha, process, entry, cpus, rate, rate_source (measured / estimate / redline / empty), every param, window_s, requests_server, requests_loadgen, cpu_s_os, cpu_source (cgroup / rusage / prometheus), cpu_s_pprof, throttled_periods, alloc_bytes, gc_cycles, gc_cpu_s, warmup_s, load_s, goos, status |
 | `requests.csv.gz` | one row per request | t (s since load start), route, latency_ms, ok, status, in_window (after warm-up), in_cpu_window |
 | `counters.csv` | one row per custom counter sample (k6) | t, metric, value, tags |
 | `cpu_functions.csv` | one row per process × function | process, function, flat_s, cum_s, flat_share, cum_share |

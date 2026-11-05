@@ -33,6 +33,7 @@ type ScenarioBrief struct {
 	Name    string            `json:"name"`
 	Passing int               `json:"passing"`
 	Total   int               `json:"total"`
+	Load    string            `json:"load"`
 	Issues  []string          `json:"issues,omitempty"`
 	Latency []results.Latency `json:"latency"`
 	Procs   []ProcBrief       `json:"processes"`
@@ -65,7 +66,7 @@ func Summarize(root string) (*Summary, error) {
 		s.Runs = append(s.Runs, RunBrief{r.ID, r.Grade, r.Status, issues(r.Checks)})
 	}
 	for _, sc := range d.Scenarios {
-		b := ScenarioBrief{Name: sc.Name, Passing: sc.Passing, Total: sc.Total, Issues: issues(sc.Checks), Latency: sc.Latency}
+		b := ScenarioBrief{Name: sc.Name, Passing: sc.Passing, Total: sc.Total, Load: sc.Load, Issues: issues(sc.Checks), Latency: sc.Latency}
 		for _, p := range sc.Procs {
 			b.Procs = append(b.Procs, ProcBrief{p.Name, p.CPU, p.Alloc, p.GC, p.SlopeGor, p.SlopeHeap, head(p.Top, 8), head(p.TopAlloc, 5), p.Growth, p.Focus})
 		}

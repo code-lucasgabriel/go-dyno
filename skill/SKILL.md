@@ -37,7 +37,8 @@ Deliverable: the HTML report (`go-dyno report`) plus a short written summary. Ev
 
 ### 3. Load
 
-- Use the production calibration you have (clients per pod, req/s per pod, payload mix), put it in `load:`, and write down in the summary what is an ESTIMATE.
+- Use the production calibration you have (clients per pod, req/s per pod, payload mix), put it in `load:`, and record where the rate came from in `load.rate_source` (`measured` or `estimate`, with a note). The report prints it next to every scenario.
+- **No production numbers** (no metrics access, new service): don't invent a rate. Run `go-dyno redline` first, then measure at fixed fractions of the knee with `rate_source: {kind: redline, redline: <redline folder>, fraction: 0.3 | 0.5 | 0.7}`. Hotspot shares, leaks and A/B comparisons hold at any steady rate; absolute latency and headroom do not, so say so.
 - The built-in generator is open loop: it sends at `rate` whether or not the service keeps up, so slowness shows as latency and drops instead of hiding. Use `k6:` when you need sessions, persistent connections or a protocol other than HTTP; the script reads `BASE_URL`, `RATE` and `DURATION` from the environment.
 - **Synthetic payloads must not be trivially compressible** if compression is on: use `body_random_bytes`.
 - **Validate inside k6 scripts:** retry and count failed client setup (login, handshake, session creation), count timeouts and errors per route, and for servers that send messages on their own, count messages sent vs received (export them with `counter_prefix`). Know your load client's quirks (example: a client that buffers one late message and hands it to the next wait counts late messages as delivered).

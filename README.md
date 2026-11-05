@@ -77,10 +77,18 @@ processes:
 load:
   base_url: http://localhost:8080
   rate: 200                      # req/s, open loop
+  rate_source: {kind: measured, note: "p95 req/s per pod, gateway metrics"}
   warmup: 60s
   routes:
     - {name: list, path: /items, weight: 3}
     - {name: create, method: POST, path: /items, body_random_bytes: 1024}
+```
+
+**Where the rate comes from.** `rate_source` is shown on every report next to the numbers, so an estimate is never read as production traffic. `kind` is `measured`, `estimate` or `redline`. Without production numbers, run `go-dyno redline` first and measure at a fraction of the knee:
+
+```yaml
+load:
+  rate_source: {kind: redline, redline: results/redline-baseline, fraction: 0.5}   # sets rate
 ```
 
 Processes run in Docker (`docker:`) or as local commands (`command:`). Load comes from the built-in open-loop HTTP generator or from a k6 script (`load.k6.script`), which receives `BASE_URL`, `RATE` and `DURATION`.

@@ -18,6 +18,7 @@ processes:
 load:
   base_url: http://localhost:8080
   rate: 300
+  rate_source: {kind: estimate, note: "a fixed demo rate, well under the ceiling"}
   warmup: 15s
   routes:
     - {name: hot, path: /hot}

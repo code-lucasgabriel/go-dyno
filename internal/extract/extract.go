@@ -62,7 +62,7 @@ func Run(dir string) error {
 
 	runRows := [][]string{}
 	paramKeys := sortedKeys(m.Params)
-	runHead := append([]string{"run_id", "scenario", "rep", "label", "sha", "process", "entry", "cpus", "rate"}, paramKeys...)
+	runHead := append([]string{"run_id", "scenario", "rep", "label", "sha", "process", "entry", "cpus", "rate", "rate_source"}, paramKeys...)
 	runHead = append(runHead, "window_s", "requests_server", "requests_loadgen", "cpu_s_os", "cpu_source", "cpu_s_pprof",
 		"throttled_periods", "alloc_bytes", "gc_cycles", "gc_cpu_s", "warmup_s", "load_s", "goos", "status")
 
@@ -122,7 +122,7 @@ func Run(dir string) error {
 
 		row := map[string]string{
 			"run_id": m.RunID, "scenario": m.Scenario, "rep": strconv.Itoa(m.Rep), "label": m.Label, "sha": m.SHA,
-			"process": p, "entry": b01(pm.Entry), "cpus": g(pm.CPUs), "rate": g(m.Rate),
+			"process": p, "entry": b01(pm.Entry), "cpus": g(pm.CPUs), "rate": g(m.Rate), "rate_source": m.RateSrc.Kind,
 			"window_s": g(t.CPU1 - t.CPU0), "requests_loadgen": g(nLoadgen), "cpu_s_pprof": g(cpuPprof),
 			"warmup_s": g(m.Warmup), "load_s": g(t.LoadEnd - t.LoadStart), "status": m.Status,
 		}

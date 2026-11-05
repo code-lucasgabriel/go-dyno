@@ -69,6 +69,8 @@ type Scenario struct {
 	Procs   []ProcData        `json:"procs"`
 	Latency []results.Latency `json:"latency"`
 	Warmup  float64           `json:"warmup"`
+	Load    string            `json:"load"`        // rate and where it came from
+	LoadSrc string            `json:"load_source"` // measured | estimate | redline | ""
 }
 
 type RunRow struct {
@@ -125,7 +127,8 @@ func Build(root, base string) (*Data, error) {
 		}
 		s := Scenario{Name: sc, Passing: len(pass), Total: len(all), Checks: trust.Scenario(all, maxCV), Latency: results.Latencies(pass)}
 		if len(all) > 0 {
-			s.Warmup = all[0].Meta.Warmup
+			m := all[0].Meta
+			s.Warmup, s.Load, s.LoadSrc = m.Warmup, m.RateSrc.Describe(m.Rate), m.RateSrc.Kind
 		}
 		for i, p := range results.Processes(all) {
 			s.Procs = append(s.Procs, procData(pass, p, i, s.Warmup))

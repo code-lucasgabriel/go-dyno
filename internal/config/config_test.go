@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,6 +40,38 @@ func TestValidate(t *testing.T) {
 		os.WriteFile(p, []byte(y), 0o644)
 		if _, err := Read(p); err == nil {
 			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+func TestRateFromRedline(t *testing.T) {
+	d := t.TempDir()
+	os.MkdirAll(filepath.Join(d, "results", "redline-x"), 0o755)
+	os.WriteFile(filepath.Join(d, "results", "redline-x", "redline.json"), []byte(`{"knee": 300}`), 0o644)
+	base := "processes: [{name: a, debug: h:1, command: [x]}]\nload: {base_url: x, routes: [{path: /}], %s}"
+	write := func(load string) string {
+		p := filepath.Join(d, "c.yaml")
+		os.WriteFile(p, []byte(fmt.Sprintf(base, load)), 0o644)
+		return p
+	}
+	c, err := Read(write("rate_source: {kind: redline, redline: results/redline-x, fraction: 0.5}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Load.Rate != 150 || c.Load.RateSource.Knee != 300 {
+		t.Errorf("rate %v knee %v, want 150 and 300", c.Load.Rate, c.Load.RateSource.Knee)
+	}
+	if got := c.Load.RateSource.Describe(c.Load.Rate); got != "150 req/s, 50% of the redline knee of 300 req/s" {
+		t.Errorf("describe = %q", got)
+	}
+	for _, bad := range []string{
+		"rate: 10, rate_source: {kind: redline, redline: results/redline-x, fraction: 0.5}",
+		"rate_source: {kind: redline, redline: results/redline-x}",
+		"rate_source: {kind: redline, redline: results/missing, fraction: 0.5}",
+		"rate: 10, rate_source: {kind: guess}",
+	} {
+		if _, err := Read(write(bad)); err == nil {
+			t.Errorf("%s: expected an error", bad)
 		}
 	}
 }

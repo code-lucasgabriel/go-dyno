@@ -29,6 +29,7 @@ type Meta struct {
 	HostArch  string            `json:"host_arch"`
 	HostCPUs  int               `json:"host_cpus"`
 	Rate      float64           `json:"rate"`
+	RateSrc   config.RateSource `json:"rate_source"`
 	Warmup    float64           `json:"warmup_s"`
 	Params    map[string]string `json:"params,omitempty"`
 	Processes []ProcMeta        `json:"processes"`

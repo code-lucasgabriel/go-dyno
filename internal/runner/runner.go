@@ -102,7 +102,7 @@ func one(ctx context.Context, cfg *config.Config, o Options, id string, rep int)
 	m := results.Meta{
 		Tool: "go-dyno " + Version, Name: cfg.Name, RunID: id, Scenario: cfg.Scenario, Rep: rep,
 		Label: o.Label, SHA: o.SHA, HostOS: runtime.GOOS, HostArch: runtime.GOARCH, HostCPUs: runtime.NumCPU(),
-		Rate: cfg.Load.Rate, Warmup: cfg.Load.Warmup.Seconds(), Params: cfg.Params, Checks: cfg.Checks, Focus: cfg.Focus,
+		Rate: cfg.Load.Rate, RateSrc: cfg.Load.RateSource, Warmup: cfg.Load.Warmup.Seconds(), Params: cfg.Params, Checks: cfg.Checks, Focus: cfg.Focus,
 		Status: "ok",
 	}
 	var mu sync.Mutex
@@ -295,7 +295,7 @@ func writeSummary(path, dir string, t results.Trust) {
 	}
 	fmt.Fprintf(&b, "- grade: %s (%d)\n- scenario: %s, rep %d, label %q, sha %s\n", t.Grade, t.Score, m.Scenario, m.Rep, m.Label, m.SHA)
 	fmt.Fprintf(&b, "- host: %s/%s, %d CPUs; tool %s\n", m.HostOS, m.HostArch, m.HostCPUs, m.Tool)
-	fmt.Fprintf(&b, "- load: %.0f req/s, warm-up %.0fs, CPU window %.1fs, %.0f requests counted\n", m.Rate, m.Warmup, m.Times.CPU1-m.Times.CPU0, r.Requests())
+	fmt.Fprintf(&b, "- load: %s; warm-up %.0fs, CPU window %.1fs, %.0f requests counted\n", m.RateSrc.Describe(m.Rate), m.Warmup, m.Times.CPU1-m.Times.CPU0, r.Requests())
 	for p, pr := range r.PerRequest() {
 		fmt.Fprintf(&b, "- %s: %.1f µs CPU/request, %.0f B allocated/request, GC %.1f%% of CPU\n", p, pr.CPUus, pr.AllocB, pr.GCShare*100)
 	}
