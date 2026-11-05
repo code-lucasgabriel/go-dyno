@@ -106,7 +106,7 @@ go-dyno report results
 |---|---|
 | `go-dyno init` | Print a starter config. |
 | `go-dyno run -c dyno.yaml` | Run `reps` repetitions: fresh processes, warm-up, stats, parallel CPU profiles, stats again, then heap, allocs, goroutines, trace. Writes `results/<scenario>-r<N>/`. Flags: `-o`, `--label`, `--sha`, `--reps`. |
-| `go-dyno redline -c dyno.yaml` | Multiply the rate (`redline.start`, `factor`) until p99, errors or throughput cross the limits, bisect the knee, diagnose. |
+| `go-dyno redline -c dyno.yaml` | Multiply the rate (`redline.start`, `factor`) until p99, errors or throughput cross the limits, bisect the knee, diagnose. Uses the k6 script when `load.k6` is set. |
 | `go-dyno compare BASE HEAD` | Compare two results folders. Exits 1 on regression. Flags: `--cpu`, `--alloc`, `--p99`, `--p50`, `--markdown`, `--json`. |
 | `go-dyno report RESULTS` | Write `RESULTS/report.html`. `--base` adds a comparison and flame graph diffs. |
 | `go-dyno summary RESULTS` | Print a JSON digest. |

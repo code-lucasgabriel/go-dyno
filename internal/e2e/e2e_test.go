@@ -175,3 +175,33 @@ redline: {start: 50, factor: 2, step: 4s, warmup: 2s, p99: 150ms, refine: 1}
 		t.Errorf("evidence should name the waiting handler: %q", r.Diagnosis[0].Evidence)
 	}
 }
+
+// Redline drives the configured k6 script instead of the built-in generator.
+func TestRedlineK6(t *testing.T) {
+	if _, err := exec.LookPath("k6"); err != nil {
+		t.Skip("k6 not installed")
+	}
+	script := filepath.Join(t.TempDir(), "work.js")
+	os.WriteFile(script, []byte(`import http from 'k6/http';
+export const options = { scenarios: { s: { executor: 'constant-arrival-rate', rate: Number(__ENV.RATE),
+  timeUnit: '1s', duration: __ENV.DURATION, preAllocatedVUs: 50, maxVUs: 400 } } };
+export default function () { http.get(__ENV.BASE_URL + '/work', { tags: { name: 'work' }, timeout: '2s' }); }
+`), 0o644)
+	cfg, out := setup(t, fmt.Sprintf(`  rate: 50
+  k6: {script: %q}
+scenario: work
+redline: {start: 50, factor: 2, step: 4s, warmup: 2s, p99: 150ms, refine: 1}
+`, script))
+	r, err := redline.Run(context.Background(), cfg, out, t.Logf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("knee %.0f, diagnosis %+v", r.Knee, r.Diagnosis)
+	// 4 workers × 20 ms each → at most 200 req/s
+	if r.Knee < 80 || r.Knee > 230 {
+		t.Errorf("knee = %.0f, want near the 200 req/s ceiling", r.Knee)
+	}
+	if r.Steps[0].LoadgenCores <= 0 {
+		t.Errorf("k6 CPU not measured: %+v", r.Steps[0])
+	}
+}

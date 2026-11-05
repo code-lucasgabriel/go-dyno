@@ -169,7 +169,16 @@ func step(ctx context.Context, cfg *config.Config, rate float64, root string) (S
 	t0 = unix(start.Add(rl.Warmup))
 	t1 = unix(start.Add(rl.Warmup + rl.Step))
 	done := make(chan load.Summary, 1)
-	go func() { done <- load.Run(ctx, cfg.Load, rate, rl.Warmup+rl.Step, sink) }()
+	var loadErr error
+	go func() {
+		if cfg.Load.K6 != nil {
+			var sum load.Summary
+			sum, loadErr = load.RunK6(ctx, cfg, rate, rl.Warmup+rl.Step, dir, sink, func([]string) {})
+			done <- sum
+			return
+		}
+		done <- load.Run(ctx, cfg.Load, rate, rl.Warmup+rl.Step, sink)
+	}()
 
 	time.Sleep(time.Until(start.Add(rl.Warmup)))
 	s0 := stats(ctx, cfg)
@@ -191,6 +200,9 @@ func step(ctx context.Context, cfg *config.Config, rate float64, root string) (S
 	window := rl.Step.Seconds()
 	sum := <-done
 	wg.Wait()
+	if loadErr != nil {
+		return s, loadErr
+	}
 
 	// completed requests sent inside the window
 	s.Achieved = float64(len(lat)) / window
